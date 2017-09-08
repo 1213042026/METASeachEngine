@@ -1,0 +1,48 @@
+1./inc/core.php 508行 添加主逻辑代码 爬取https://b363.firstguo.com/search结果
+function huoduan_get_firstguo($q,$p=1,$time=86400){
+    $s = urlencode($q);
+    $md5str = md5($q.$p);
+    $dir = ROOT_PATH.'/cache/'.substr($md5str,0,2).'/'.substr($md5str,2,2).'/';
+    $file = $dir.'so_'.md5(SEARCHSITE.$q.$p).'.php';
+    $list = array();
+    if($time<1){
+        $xtime = 1;
+    }else{
+        if(is_file($file) && time()-filemtime($file)<$time){
+            $xtime = 1;
+        }else{
+            $xtime = 0;
+        }
+        $xtime = 0;
+    }
+    if(is_file($file) && $xtime){
+        include($file);
+        $list['cache']=1;
+    }else{
+
+        $html = huoduan_get_html('https://b363.firstguo.com/search?q='.$s.'&start='.(($p-1)*10),'https://b363.firstguo.com/');
+        $titleBlocks = huoduan_get_content_array($html,'<div class="g">','</div>',1);
+        $descBlocks = huoduan_get_content_array($html,'<span class="st">','</div>',1);
+
+        foreach ($titleBlocks as $idx => $titleBlock) {
+        	$aHTML = huoduan_get_body($titleBlock, '<a href="', '</a>');
+        	$list['data'][$idx]['title'] = huoduan_get_body($aHTML, 'event)">', '</a>', 1);
+        	$list['data'][$idx]['link'] = huoduan_get_body($titleBlock, '<a href="', '"', 1);
+        	$list['data'][$idx]['blink'] = $list['data'][$idx]['link'];
+    		$list['data'][$idx]['des'] = trim(strip_tags($descBlocks[$idx],'<em>'));
+        }
+
+        $countHtml = huoduan_get_html('https://b363.firstguo.com/search?q='.$s,'https://b363.firstguo.com/');
+		$list['count'] = trim(str_replace(",", "", huoduan_get_body($countHtml, '找到约', '条结果', 1)));
+		$list['cache']=0;
+		$list['pnum'] = ceil(intval($list['count']) / 9);
+		if ($p == $list['pnum']) {
+        	$list['pnext']=0;
+		} else {
+			$list['pnext']=1;
+		}
+    }
+    return $list;
+}
+
+2. search.php 102 103行注释 替换为调用上面的代码(105, 106)
